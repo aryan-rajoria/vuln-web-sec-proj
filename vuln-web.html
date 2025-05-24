@@ -1,0 +1,732 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Vulnerable Web Security Projects Explorer</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- Visualization & Content Choices:
+    - Report Intro/Conclusion: Text blocks in Overview/Risks sections. Goal: Context/Warning. Method: HTML/Tailwind.
+    - Project List (Sec III Table): Interactive cards in Project Explorer. Goal: Organize/Inform/Compare. Method: JS-rendered HTML/Tailwind cards, with JS filters (tech, deployment, category). Interaction: Click to expand details, filter.
+    - Project Descriptions (Sec II, III): Text in expanded card view or dedicated sections. Goal: Inform. Method: HTML/Tailwind.
+    - GitHub Links: Clickable buttons/links. Goal: Access. Method: <a> tags.
+    - Technology Distribution: Bar chart. Goal: Summarize/Compare. Method: Chart.js Canvas. Interaction: Tooltips. Justification: Visual overview of project tech stacks.
+    - Frameworks (Sec IV): Text blocks. Goal: Inform. Method: HTML/Tailwind.
+    - NO SVG/Mermaid confirmed. All visuals are HTML/CSS/Tailwind or Chart.js Canvas. -->
+    <style>
+        body {
+            font-family: 'Inter', sans-serif; /* Assuming Inter is loaded or falls back */
+        }
+        .nav-link {
+            @apply px-3 py-2 rounded-md text-sm font-medium text-stone-700 hover:bg-orange-100 hover:text-orange-700 transition-colors;
+        }
+        .nav-link.active {
+            @apply bg-orange-500 text-white hover:bg-orange-600;
+        }
+        .content-section {
+            @apply p-4 md:p-6 lg:p-8;
+        }
+        .project-card {
+            @apply bg-white shadow-lg rounded-lg p-6 mb-6 hover:shadow-xl transition-shadow duration-300;
+        }
+        .project-card h3 {
+            @apply text-xl font-semibold text-stone-800 mb-2;
+        }
+        .project-card p {
+            @apply text-stone-600 text-sm mb-1;
+        }
+        .details-button {
+            @apply mt-4 inline-block bg-orange-500 text-white px-4 py-2 rounded-md hover:bg-orange-600 transition-colors text-sm;
+        }
+        .github-button {
+            @apply mt-2 inline-flex items-center bg-stone-700 text-white px-4 py-2 rounded-md hover:bg-stone-800 transition-colors text-sm;
+        }
+        .filter-select {
+            @apply block w-full p-2 border border-stone-300 rounded-md shadow-sm focus:ring-orange-500 focus:border-orange-500 sm:text-sm;
+        }
+        .chart-container {
+            position: relative;
+            width: 100%;
+            max-width: 800px; /* Increased max-width for better readability on larger screens */
+            margin-left: auto;
+            margin-right: auto;
+            height: 350px; /* Base height */
+            max-height: 450px; /* Max height */
+        }
+        @media (min-width: 768px) { /* md breakpoint */
+            .chart-container {
+                height: 400px;
+            }
+        }
+        /* For font awesome or unicode icons if needed */
+        .icon-link::before {
+            content: '🔗';
+            margin-right: 0.5em;
+        }
+    </style>
+</head>
+<body class="bg-stone-50 text-stone-800">
+
+    <header class="bg-white shadow-md sticky top-0 z-50">
+        <div class="container mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex items-center justify-between h-16">
+                <h1 class="text-2xl font-bold text-orange-600">Vulnerable Projects Explorer</h1>
+                <nav class="hidden md:flex space-x-4" id="desktop-nav">
+                    <a href="#overview" class="nav-link active" data-section="overview">Overview</a>
+                    <a href="#explorer" class="nav-link" data-section="explorer">Project Explorer</a>
+                    <a href="#flagship" class="nav-link" data-section="flagship">Key OWASP Projects</a>
+                    <a href="#frameworks" class="nav-link" data-section="frameworks">Learning Frameworks</a>
+                    <a href="#risks" class="nav-link" data-section="risks">Risks & Considerations</a>
+                </nav>
+                <div class="md:hidden">
+                    <button id="mobile-menu-button" class="text-stone-700 hover:text-orange-600 focus:outline-none">
+                        <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16m-7 6h7" />
+                        </svg>
+                    </button>
+                </div>
+            </div>
+        </div>
+        <div id="mobile-menu" class="md:hidden hidden bg-white shadow-lg py-2">
+            <a href="#overview" class="block nav-link mobile-nav-link active" data-section="overview">Overview</a>
+            <a href="#explorer" class="block nav-link mobile-nav-link" data-section="explorer">Project Explorer</a>
+            <a href="#flagship" class="block nav-link mobile-nav-link" data-section="flagship">Key OWASP Projects</a>
+            <a href="#frameworks" class="block nav-link mobile-nav-link" data-section="frameworks">Learning Frameworks</a>
+            <a href="#risks" class="block nav-link mobile-nav-link" data-section="risks">Risks & Considerations</a>
+        </div>
+    </header>
+
+    <main class="container mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <section id="overview" class="content-section">
+            <h2 class="text-3xl font-semibold text-stone-900 mb-6">Welcome to the Vulnerable Projects Explorer</h2>
+            <p class="mb-4 text-lg text-stone-700">This application provides an interactive way to explore open-source, "vulnerable by design" web security learning projects. These projects are intentionally engineered with security weaknesses to serve as educational resources, allowing safe and legal practice in identifying and exploiting vulnerabilities.</p>
+            <p class="mb-4 text-stone-700">The Open Worldwide Application Security Project (OWASP) plays a significant role, with many prominent projects like Juice Shop and WebGoat being official OWASP initiatives. These tools are vital for security training, awareness, CTFs, and testing security tools.</p>
+            <p class="mb-6 text-stone-700">Use the navigation to explore projects, learn about key OWASP initiatives, discover learning frameworks, and understand the important considerations when using these tools.</p>
+            
+            <div class="bg-white p-6 rounded-lg shadow-md mb-8">
+                <h3 class="text-2xl font-semibold text-stone-800 mb-4">Project Technology Distribution</h3>
+                <p class="text-stone-600 mb-4">This chart shows the count of listed projects by their primary technologies. It offers a quick overview of the tech stacks you can find practice environments for. (Note: A project can be associated with multiple technologies).</p>
+                <div class="chart-container">
+                    <canvas id="techDistributionChart"></canvas>
+                </div>
+            </div>
+             <div class="bg-white p-6 rounded-lg shadow-md">
+                <h3 class="text-2xl font-semibold text-stone-800 mb-4">Project Deployment Methods</h3>
+                <p class="text-stone-600 mb-4">This chart illustrates the common deployment methods for the listed projects, highlighting the prevalence of Docker for ease of setup.</p>
+                <div class="chart-container">
+                    <canvas id="deploymentMethodChart"></canvas>
+                </div>
+            </div>
+        </section>
+
+        <section id="explorer" class="content-section hidden">
+            <h2 class="text-3xl font-semibold text-stone-900 mb-6">Project Explorer</h2>
+            <p class="mb-6 text-stone-700">Discover a wide range of vulnerable-by-design projects. Use the filters below to narrow down your search based on technology, deployment method, or project category. Click on a project card to see more details and find its GitHub link.</p>
+
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8 p-6 bg-stone-100 rounded-lg shadow">
+                <div>
+                    <label for="techFilter" class="block text-sm font-medium text-stone-700 mb-1">Filter by Technology:</label>
+                    <select id="techFilter" class="filter-select">
+                        <option value="">All Technologies</option>
+                    </select>
+                </div>
+                <div>
+                    <label for="deploymentFilter" class="block text-sm font-medium text-stone-700 mb-1">Filter by Deployment:</label>
+                    <select id="deploymentFilter" class="filter-select">
+                        <option value="">All Deployment Methods</option>
+                    </select>
+                </div>
+                <div>
+                    <label for="categoryFilter" class="block text-sm font-medium text-stone-700 mb-1">Filter by Category:</label>
+                    <select id="categoryFilter" class="filter-select">
+                        <option value="">All Categories</option>
+                    </select>
+                </div>
+            </div>
+            <div id="projectList" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                </div>
+            <p id="noResults" class="text-center text-stone-600 hidden mt-8">No projects match your current filter selection.</p>
+        </section>
+
+        <section id="flagship" class="content-section hidden">
+            <h2 class="text-3xl font-semibold text-stone-900 mb-6">Key OWASP Projects</h2>
+            <p class="mb-6 text-stone-700">OWASP hosts several highly regarded projects that serve as benchmarks in vulnerable application training. Here are a couple of prominent examples:</p>
+            
+            <div class="project-card">
+                <h3>OWASP Juice Shop</h3>
+                <p class="text-stone-700 font-semibold">Description:</p>
+                <p>Often described as "probably the most modern and sophisticated insecure web application," OWASP Juice Shop is intentionally riddled with security holes for educational purposes. It serves as a versatile tool for security training, awareness demonstrations, CTFs, and as a test subject for security tools and DevSecOps pipelines.</p>
+                <p class="text-stone-700 font-semibold mt-2">Scope:</p>
+                <p>Juice Shop aims to cover the entire OWASP Top Ten list of critical web application security risks, along with numerous other vulnerabilities encountered in contemporary web applications. It is built using modern technologies, including Node.js, Express, Angular, and TypeScript.</p>
+                <p class="text-stone-700 font-semibold mt-2">Key Features:</p>
+                <p>Scoreboard for progress tracking, extensive hacking challenges, RESTful API component, modern JavaScript frameworks.</p>
+                <a href="https://github.com/juice-shop/juice-shop" target="_blank" rel="noopener noreferrer" class="github-button icon-link">GitHub Repository</a>
+            </div>
+
+            <div class="project-card">
+                <h3>OWASP WebGoat</h3>
+                <p class="text-stone-700 font-semibold">Description:</p>
+                <p>WebGoat is a deliberately insecure web application specifically designed to teach security lessons related to Java-based applications, particularly those using common open-source components.</p>
+                <p class="text-stone-700 font-semibold mt-2">Scope:</p>
+                <p>Focuses on demonstrating common server-side application flaws through interactive exercises. Its pedagogical approach involves explaining vulnerabilities, providing hands-on assignments, and explaining potential mitigations. Includes WebWolf, a companion app for specific challenges.</p>
+                 <p class="text-stone-700 font-semibold mt-2">Key Features:</p>
+                <p>Structured, lesson-based learning; interactive assignments; explicit inclusion of mitigation strategies; companion WebWolf application.</p>
+                <a href="https://github.com/WebGoat/WebGoat" target="_blank" rel="noopener noreferrer" class="github-button icon-link">GitHub Repository</a>
+            </div>
+        </section>
+
+        <section id="frameworks" class="content-section hidden">
+            <h2 class="text-3xl font-semibold text-stone-900 mb-6">Related Security Learning Frameworks & Platforms</h2>
+            <p class="mb-6 text-stone-700">Beyond pre-built vulnerable applications, other resources exist that facilitate security learning, sometimes by providing frameworks to build custom labs or offering comprehensive training platforms.</p>
+
+            <div class="project-card">
+                <h3>Docker Security Playground (DSP)</h3>
+                <p>DSP is a microservices-based framework designed for studying network security and penetration testing techniques. It leverages Docker Compose to allow users to create, graphically edit, and manage custom network scenarios and vulnerability labs. It empowers users to build their own labs rather than providing a single, pre-defined vulnerable application.</p>
+                <a href="https://github.com/DockerSecurityPlayground/DSP" target="_blank" rel="noopener noreferrer" class="github-button icon-link">GitHub Repository</a>
+            </div>
+
+            <div class="project-card">
+                <h3>PortSwigger Web Security Academy</h3>
+                <p>This is a widely respected, free online training center provided by the creators of Burp Suite. It offers extensive learning materials covering numerous web security topics, complemented by interactive labs where users can practice exploiting vulnerabilities. It functions as a comprehensive learning platform rather than a single downloadable open-source project.</p>
+                 <a href="https://portswigger.net/web-security" target="_blank" rel="noopener noreferrer" class="details-button">Visit Academy</a>
+            </div>
+        </section>
+
+        <section id="risks" class="content-section hidden">
+            <h2 class="text-3xl font-semibold text-stone-900 mb-6">Risks & Important Considerations</h2>
+            <div class="bg-red-100 border-l-4 border-red-500 text-red-700 p-4 mb-6 rounded-md" role="alert">
+                <p class="font-bold">Critical Warning!</p>
+                <p>Vulnerable-by-design applications are genuinely insecure. They should NEVER be deployed on production servers or any internet-facing systems. Accidental exposure or misconfiguration can lead to the compromise of the host machine or network. Always use these educational resources responsibly within isolated environments (e.g., local Docker instances bound to 127.0.0.1).</p>
+            </div>
+            <p class="mb-4 text-stone-700">These applications are indispensable assets for practical cybersecurity education. They provide essential, safe, and legal sandboxes for hands-on learning that theoretical study alone cannot replicate.</p>
+            <p class="mb-4 text-stone-700">The open-source projects listed offer a rich collection of environments covering various technologies. The increasing use of Docker simplifies deployment, making these tools more accessible. However, their inherent insecurity demands caution.</p>
+            <p class="mb-4 text-stone-700">As cyber threats and development practices evolve, continuous learning is paramount. These projects provide invaluable means for professionals and students to hone skills, test defenses, and stay current with vulnerabilities and secure coding practices.</p>
+        </section>
+        
+        <div id="projectModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full hidden z-50 flex items-center justify-center p-4">
+            <div class="relative bg-white rounded-lg shadow-xl max-w-2xl w-full mx-auto p-6 md:p-8">
+                <button id="closeModalButton" class="absolute top-4 right-4 text-stone-500 hover:text-stone-700">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                </button>
+                <h3 id="modalProjectName" class="text-2xl font-semibold text-stone-900 mb-4"></h3>
+                <p class="text-stone-700 font-semibold mb-1">Description:</p>
+                <p id="modalProjectDescription" class="text-stone-600 mb-4 text-sm max-h-60 overflow-y-auto"></p>
+                <p class="text-stone-700 font-semibold mb-1">Key Technologies:</p>
+                <p id="modalProjectTech" class="text-stone-600 mb-4 text-sm"></p>
+                <p class="text-stone-700 font-semibold mb-1">Deployment Methods:</p>
+                <p id="modalProjectDeployment" class="text-stone-600 mb-4 text-sm"></p>
+                <p class="text-stone-700 font-semibold mb-1">Category:</p>
+                <p id="modalProjectCategory" class="text-stone-600 mb-4 text-sm"></p>
+                <a id="modalGithubLink" href="#" target="_blank" rel="noopener noreferrer" class="github-button icon-link">View on GitHub</a>
+            </div>
+        </div>
+
+    </main>
+
+    <footer class="bg-stone-800 text-stone-300 text-center p-6 mt-12">
+        <p>&copy; 2024 Vulnerable Projects Explorer. For educational purposes only.</p>
+        <p>Data derived from "Open-Source Vulnerable-by-Design Web Security Learning Projects on GitHub" report.</p>
+    </footer>
+
+    <script>
+        const projectsData = [
+            {
+                id: 'juice-shop',
+                name: 'OWASP Juice Shop',
+                isFlagship: true,
+                briefDescription: 'Modern web app (OWASP Top 10+), CTF/Training.',
+                fullDescription: 'Often described as "probably the most modern and sophisticated insecure web application," OWASP Juice Shop is intentionally riddled with security holes for educational purposes. It serves as a versatile tool for security training, awareness demonstrations, CTFs, and as a test subject for security tools and DevSecOps pipelines. Juice Shop aims to cover the entire OWASP Top Ten list of critical web application security risks, along with numerous other vulnerabilities encountered in contemporary web applications.',
+                keyTechnologies: ['Node.js', 'Angular', 'TypeScript', 'REST API'],
+                deployment: ['Docker', 'Source'],
+                githubLink: 'https://github.com/juice-shop/juice-shop',
+                category: 'Web Application'
+            },
+            {
+                id: 'webgoat',
+                name: 'OWASP WebGoat',
+                isFlagship: true,
+                briefDescription: 'Java web app vulnerabilities, structured lessons, mitigation focus.',
+                fullDescription: 'WebGoat is a deliberately insecure web application specifically designed to teach security lessons related to Java-based applications, particularly those using common open-source components. The project focuses on demonstrating common server-side application flaws through interactive exercises. Its pedagogical approach involves explaining the vulnerability concept, providing hands-on assignments for practice, and crucially, explaining potential mitigations. It also includes WebWolf, a companion application used for specific challenges.',
+                keyTechnologies: ['Java', 'Spring'],
+                deployment: ['Docker', 'JAR'],
+                githubLink: 'https://github.com/WebGoat/WebGoat',
+                category: 'Web Application'
+            },
+            {
+                id: 'dvwa',
+                name: 'Damn Vulnerable Web App (DVWA)',
+                isFlagship: false,
+                briefDescription: 'Classic PHP/MySQL vulnerabilities (SQLi, XSS, File Inclusion etc.).',
+                fullDescription: 'A foundational project for many learners, DVWA focuses on classic web vulnerabilities within a PHP/MySQL environment. It provides straightforward examples of flaws like SQL Injection, XSS, File Inclusion, and Command Execution, making it an excellent starting point for understanding core web security concepts.',
+                keyTechnologies: ['PHP', 'MySQL', 'MariaDB'],
+                deployment: ['Docker', 'XAMPP'],
+                githubLink: 'https://github.com/digininja/DVWA',
+                category: 'Web Application'
+            },
+            {
+                id: 'security-shepherd',
+                name: 'OWASP Security Shepherd',
+                isFlagship: true,
+                briefDescription: 'Web & Mobile app security training platform, wide topic coverage.',
+                fullDescription: 'This project offers a broad training platform encompassing both web and mobile application security. With over seventy levels, it aims for a gentle learning curve suitable for novices while still challenging experienced practitioners. It uses real, albeit dampened, vulnerabilities rather than simulations and includes features like user management and scoreboards.',
+                keyTechnologies: ['Java'],
+                deployment: ['Docker', 'Source'],
+                githubLink: 'https://github.com/OWASP/SecurityShepherd',
+                category: 'Web & Mobile'
+            },
+            {
+                id: 'cloudgoat',
+                name: 'CloudGoat',
+                isFlagship: false,
+                briefDescription: '"Vulnerable by Design" AWS deployment tool, cloud misconfigs.',
+                fullDescription: 'Developed by Rhino Security Labs, CloudGoat specifically targets AWS security education. It uses Python scripts and Terraform to deploy intentionally misconfigured AWS environments, allowing users to practice identifying and exploiting cloud-specific vulnerabilities and privilege escalation paths.',
+                keyTechnologies: ['Python', 'Terraform', 'AWS'],
+                deployment: ['Python script'],
+                githubLink: 'https://github.com/RhinoSecurityLabs/cloudgoat',
+                category: 'Cloud Security'
+            },
+            {
+                id: 'dvga',
+                name: 'Damn Vulnerable GraphQL (DVGA)',
+                isFlagship: false,
+                briefDescription: 'GraphQL API vulnerabilities (DoS, IDOR, Injection, Introspection).',
+                fullDescription: 'As GraphQL adoption increases, securing these APIs becomes crucial. DVGA provides a dedicated environment for learning GraphQL-specific vulnerabilities, such as abusing introspection features, crafting Denial-of-Service attacks through complex queries, bypassing authorization, and exploiting injection flaws.',
+                keyTechnologies: ['Python', 'GraphQL'],
+                deployment: ['Docker', 'Source'],
+                githubLink: 'https://github.com/dolevf/Damn-Vulnerable-GraphQL-Application',
+                category: 'API Security'
+            },
+            {
+                id: 'dvsa',
+                name: 'Damn Vulnerable Serverless (DVSA)',
+                isFlagship: false,
+                briefDescription: 'Serverless (AWS Lambda) vulnerabilities.',
+                fullDescription: 'This OWASP project focuses on vulnerabilities specific to serverless architectures, primarily AWS Lambda. It helps users understand and practice exploiting common misconfigurations and weaknesses in serverless applications.',
+                keyTechnologies: ['Node.js', 'Python', 'AWS SAM', 'AWS Lambda'],
+                deployment: ['AWS SAM'],
+                githubLink: 'https://github.com/OWASP/DVSA',
+                category: 'Cloud Security' 
+            },
+            {
+                id: 'dvws-node',
+                name: 'Damn Vulnerable Web Svcs (dvws-node)',
+                isFlagship: false,
+                briefDescription: 'Web Service/API vulnerabilities (IDOR, Access Control, JWT, SSRF).',
+                fullDescription: 'This project provides a Node.js based environment to learn about various web service and API vulnerabilities such as IDOR (Insecure Direct Object References), Access Control issues, JWT (JSON Web Token) flaws, and SSRF (Server-Side Request Forgery).',
+                keyTechnologies: ['Node.js', 'MongoDB', 'MySQL', 'API'],
+                deployment: ['Docker', 'Source'],
+                githubLink: 'https://github.com/snoopysecurity/dvws-node',
+                category: 'API Security'
+            },
+            {
+                id: 'damn-vulnerable-restaurant',
+                name: 'Damn Vulnerable RESTaurant',
+                isFlagship: false,
+                briefDescription: 'REST API vulnerabilities, game format.',
+                fullDescription: 'A gamified approach to learning REST API vulnerabilities. Users interact with a "restaurant" API to find and exploit flaws.',
+                keyTechnologies: ['Python', 'Flask', 'Docker', 'REST API'],
+                deployment: ['Docker'],
+                githubLink: 'https://github.com/theowni/Damn-Vulnerable-RESTaurant-API-Game',
+                category: 'API Security'
+            },
+            {
+                id: 'skf-labs',
+                name: 'OWASP SKF Labs',
+                isFlagship: true, // Listed as OWASP
+                briefDescription: 'Practice labs linked to Security Knowledge Framework (ASVS).',
+                fullDescription: 'The OWASP Security Knowledge Framework (SKF) provides a set of labs to practice security concepts. These labs are often linked to ASVS (Application Security Verification Standard) requirements, offering hands-on experience for developers and testers.',
+                keyTechnologies: ['Python', 'Flask', 'Angular', 'Docker'],
+                deployment: ['Docker', 'Source'],
+                githubLink: 'https://github.com/blabla1337/skf-labs',
+                category: 'Web Application'
+            },
+            {
+                id: 'owasp-vwa',
+                name: 'OWASP Vulnerable Web App',
+                isFlagship: true,
+                briefDescription: 'Basic PHP vulnerabilities (Cmd Exec, File Incl/Upload, SQLi, XSS).',
+                fullDescription: 'An OWASP project demonstrating basic PHP vulnerabilities like Command Execution, File Inclusion/Upload, SQL Injection, and Cross-Site Scripting. Suitable for beginners.',
+                keyTechnologies: ['PHP', 'MySQL'],
+                deployment: ['Docker', 'XAMPP'],
+                githubLink: 'https://github.com/OWASP/Vulnerable-Web-Application',
+                category: 'Web Application'
+            },
+            {
+                id: 'nodegoat',
+                name: 'NodeGoat',
+                isFlagship: true, // Listed as OWASP
+                briefDescription: 'Node.js specific vulnerabilities (based on OWASP Top 10).',
+                fullDescription: 'NodeGoat is an OWASP project designed to demonstrate common vulnerabilities in Node.js applications, often mapping to the OWASP Top 10. It helps developers learn how to secure Node.js code.',
+                keyTechnologies: ['Node.js', 'Express', 'MongoDB'],
+                deployment: ['Source'],
+                githubLink: 'https://github.com/OWASP/NodeGoat',
+                category: 'Web Application'
+            },
+            {
+                id: 'railsgoat',
+                name: 'RailsGoat',
+                isFlagship: true, // Listed as OWASP
+                briefDescription: 'Ruby on Rails specific vulnerabilities.',
+                fullDescription: 'RailsGoat is an OWASP project that is a vulnerable Ruby on Rails application. It is designed to teach developers about common security issues in Rails applications and how to fix them.',
+                keyTechnologies: ['Ruby on Rails', 'Ruby'],
+                deployment: ['Source'],
+                githubLink: 'https://github.com/OWASP/railsgoat',
+                category: 'Web Application'
+            },
+            {
+                id: 'vuln-graphql-api',
+                name: 'Vulnerable GraphQL API',
+                isFlagship: false,
+                briefDescription: 'Vulnerable GraphQL API implementation.',
+                fullDescription: 'A vulnerable GraphQL API implementation to practice identifying and exploiting common GraphQL vulnerabilities. This is a fork, indicating community contribution.',
+                keyTechnologies: ['TypeScript', 'Node.js', 'GraphQL', 'API'],
+                deployment: ['Docker'],
+                githubLink: 'https://github.com/kaakaww/vuln-graphql-api',
+                category: 'API Security'
+            },
+            {
+                id: 'secdevlabs',
+                name: 'SecDevLabs',
+                isFlagship: false,
+                briefDescription: 'Repository with *many* vulnerable apps (various techs).',
+                fullDescription: 'SecDevLabs is not a single application but a GitHub repository acting as a collection point for numerous, distinct vulnerable applications. It covers a wide spectrum of technologies (Go, Node.js, Python, PHP, React, etc.) and vulnerabilities, usually packaged with Docker for convenient setup.',
+                keyTechnologies: ['Go', 'NodeJS', 'Python', 'PHP', 'React', 'Docker', 'Various'],
+                deployment: ['Docker'],
+                githubLink: 'https://github.com/globocom/secDevLabs',
+                category: 'Mixed Collection'
+            },
+            {
+                id: 'vulnerable-by-design-nodejs',
+                name: 'Vulnerable-by-Design (Node.js)',
+                isFlagship: false,
+                briefDescription: 'Mini-projects demonstrating Node.js security best practices/fixes.',
+                fullDescription: 'This project contains mini-applications demonstrating common Node.js security vulnerabilities and how to fix them. It often presents vulnerable code alongside its secured counterpart, focusing on secure coding practices.',
+                keyTechnologies: ['Node.js', 'JavaScript', 'Docker'],
+                deployment: ['Source'],
+                githubLink: 'https://github.com/maximivanov/vulnerable-by-design',
+                category: 'Web Application'
+            },
+            {
+                id: 'scagoat',
+                name: 'SCAgoat',
+                isFlagship: false,
+                briefDescription: 'Demonstrates Software Composition Analysis vulns in cloud envs.',
+                fullDescription: 'SCAgoat is designed to demonstrate vulnerabilities arising from Software Composition Analysis (SCA) in cloud environments. It helps understand risks associated with third-party libraries and dependencies.',
+                keyTechnologies: ['Ruby', 'HCL', 'Docker', 'Cloud Security'],
+                deployment: ['Source'],
+                githubLink: 'https://github.com/toharzand/SCAgoat',
+                category: 'Cloud Security'
+            }
+        ];
+
+        const projectListDiv = document.getElementById('projectList');
+        const techFilter = document.getElementById('techFilter');
+        const deploymentFilter = document.getElementById('deploymentFilter');
+        const categoryFilter = document.getElementById('categoryFilter');
+        const noResultsP = document.getElementById('noResults');
+        
+        const modal = document.getElementById('projectModal');
+        const closeModalButton = document.getElementById('closeModalButton');
+        const modalProjectName = document.getElementById('modalProjectName');
+        const modalProjectDescription = document.getElementById('modalProjectDescription');
+        const modalProjectTech = document.getElementById('modalProjectTech');
+        const modalProjectDeployment = document.getElementById('modalProjectDeployment');
+        const modalProjectCategory = document.getElementById('modalProjectCategory');
+        const modalGithubLink = document.getElementById('modalGithubLink');
+
+        function populateFilters() {
+            const allTechs = new Set();
+            const allDeployments = new Set();
+            const allCategories = new Set();
+
+            projectsData.forEach(project => {
+                project.keyTechnologies.forEach(tech => allTechs.add(tech.trim()));
+                project.deployment.forEach(dep => allDeployments.add(dep.trim()));
+                allCategories.add(project.category.trim());
+            });
+
+            [...allTechs].sort().forEach(tech => {
+                const option = document.createElement('option');
+                option.value = tech;
+                option.textContent = tech;
+                techFilter.appendChild(option);
+            });
+
+            [...allDeployments].sort().forEach(dep => {
+                const option = document.createElement('option');
+                option.value = dep;
+                option.textContent = dep;
+                deploymentFilter.appendChild(option);
+            });
+
+            [...allCategories].sort().forEach(cat => {
+                const option = document.createElement('option');
+                option.value = cat;
+                option.textContent = cat;
+                categoryFilter.appendChild(option);
+            });
+        }
+
+        function displayProjects(filteredProjects) {
+            projectListDiv.innerHTML = '';
+            if (filteredProjects.length === 0) {
+                noResultsP.classList.remove('hidden');
+            } else {
+                noResultsP.classList.add('hidden');
+            }
+
+            filteredProjects.forEach(project => {
+                const card = document.createElement('div');
+                card.className = 'project-card';
+                card.innerHTML = `
+                    <h3>${project.name} ${project.isFlagship ? '<span class="text-xs bg-orange-200 text-orange-700 font-semibold px-2 py-1 rounded-full ml-2">OWASP</span>':''}</h3>
+                    <p class="italic text-stone-500">${project.briefDescription}</p>
+                    <p><strong>Technologies:</strong> ${project.keyTechnologies.join(', ')}</p>
+                    <p><strong>Deployment:</strong> ${project.deployment.join(', ')}</p>
+                    <p><strong>Category:</strong> ${project.category}</p>
+                    <button class="details-button" data-project-id="${project.id}">View Details</button>
+                `;
+                projectListDiv.appendChild(card);
+            });
+            
+            document.querySelectorAll('.details-button').forEach(button => {
+                button.addEventListener('click', (e) => {
+                    const projectId = e.target.dataset.projectId;
+                    const project = projectsData.find(p => p.id === projectId);
+                    if (project) {
+                        openModal(project);
+                    }
+                });
+            });
+        }
+        
+        function openModal(project) {
+            modalProjectName.textContent = project.name;
+            modalProjectDescription.textContent = project.fullDescription;
+            modalProjectTech.textContent = project.keyTechnologies.join(', ');
+            modalProjectDeployment.textContent = project.deployment.join(', ');
+            modalProjectCategory.textContent = project.category;
+            modalGithubLink.href = project.githubLink;
+            modal.classList.remove('hidden');
+        }
+
+        closeModalButton.addEventListener('click', () => {
+            modal.classList.add('hidden');
+        });
+        
+        modal.addEventListener('click', (e) => {
+            if (e.target === modal) { // Clicked on background
+                 modal.classList.add('hidden');
+            }
+        });
+
+
+        function filterProjects() {
+            const selectedTech = techFilter.value;
+            const selectedDeployment = deploymentFilter.value;
+            const selectedCategory = categoryFilter.value;
+
+            const filtered = projectsData.filter(project => {
+                const techMatch = selectedTech ? project.keyTechnologies.includes(selectedTech) : true;
+                const deploymentMatch = selectedDeployment ? project.deployment.includes(selectedDeployment) : true;
+                const categoryMatch = selectedCategory ? project.category === selectedCategory : true;
+                return techMatch && deploymentMatch && categoryMatch;
+            });
+            displayProjects(filtered);
+        }
+        
+        techFilter.addEventListener('change', filterProjects);
+        deploymentFilter.addEventListener('change', filterProjects);
+        categoryFilter.addEventListener('change', filterProjects);
+
+        // Navigation
+        const navLinks = document.querySelectorAll('.nav-link');
+        const mobileNavLinks = document.querySelectorAll('.mobile-nav-link');
+        const contentSections = document.querySelectorAll('.content-section');
+        const mobileMenuButton = document.getElementById('mobile-menu-button');
+        const mobileMenu = document.getElementById('mobile-menu');
+
+        function setActiveLink(targetSectionId, links) {
+            links.forEach(link => {
+                if (link.dataset.section === targetSectionId) {
+                    link.classList.add('active');
+                } else {
+                    link.classList.remove('active');
+                }
+            });
+        }
+        
+        function showSection(targetSectionId) {
+            contentSections.forEach(section => {
+                if (section.id === targetSectionId) {
+                    section.classList.remove('hidden');
+                } else {
+                    section.classList.add('hidden');
+                }
+            });
+            setActiveLink(targetSectionId, navLinks);
+            setActiveLink(targetSectionId, mobileNavLinks);
+            window.scrollTo(0, 0); // Scroll to top
+        }
+
+        navLinks.forEach(link => {
+            link.addEventListener('click', (e) => {
+                e.preventDefault();
+                const targetSectionId = e.target.dataset.section;
+                showSection(targetSectionId);
+                window.location.hash = targetSectionId; // Update hash for deep linking
+            });
+        });
+
+        mobileNavLinks.forEach(link => {
+            link.addEventListener('click', (e) => {
+                e.preventDefault();
+                const targetSectionId = e.target.dataset.section;
+                showSection(targetSectionId);
+                mobileMenu.classList.add('hidden'); // Hide menu after click
+                window.location.hash = targetSectionId;
+            });
+        });
+        
+        mobileMenuButton.addEventListener('click', () => {
+            mobileMenu.classList.toggle('hidden');
+        });
+
+        // Charts
+        function createTechDistributionChart() {
+            const techCounts = {};
+            projectsData.forEach(project => {
+                project.keyTechnologies.forEach(tech => {
+                    techCounts[tech] = (techCounts[tech] || 0) + 1;
+                });
+            });
+
+            const sortedTech = Object.entries(techCounts).sort(([,a],[,b]) => b-a);
+            const labels = sortedTech.map(item => item[0]);
+            const data = sortedTech.map(item => item[1]);
+
+            new Chart(document.getElementById('techDistributionChart').getContext('2d'), {
+                type: 'bar',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: 'Number of Projects',
+                        data: data,
+                        backgroundColor: 'rgba(249, 115, 22, 0.6)', // orange-500 with opacity
+                        borderColor: 'rgba(249, 115, 22, 1)', // orange-500
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            ticks: {
+                                stepSize: 1
+                            }
+                        },
+                        x: {
+                            ticks: {
+                                autoSkip: false,
+                                maxRotation: 70,
+                                minRotation: 45
+                            }
+                        }
+                    },
+                    plugins: {
+                        legend: {
+                            display: false
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    return `Projects: ${context.raw}`;
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        }
+        
+        function createDeploymentMethodChart() {
+            const deploymentCounts = {};
+            projectsData.forEach(project => {
+                project.deployment.forEach(method => {
+                    deploymentCounts[method] = (deploymentCounts[method] || 0) + 1;
+                });
+            });
+
+            const sortedDeployments = Object.entries(deploymentCounts).sort(([,a],[,b]) => b-a);
+            const labels = sortedDeployments.map(item => item[0]);
+            const data = sortedDeployments.map(item => item[1]);
+
+            new Chart(document.getElementById('deploymentMethodChart').getContext('2d'), {
+                type: 'doughnut',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: 'Deployment Methods',
+                        data: data,
+                        backgroundColor: [
+                            'rgba(249, 115, 22, 0.7)', // orange-500
+                            'rgba(120, 113, 108, 0.7)', // stone-500
+                            'rgba(234, 179, 8, 0.7)',   // amber-500
+                            'rgba(23, 37, 84, 0.7)',    // blue-900
+                            'rgba(163, 163, 163, 0.7)', // neutral-400
+                            'rgba(217, 70, 239, 0.7)'   // fuchsia-500
+                        ],
+                        borderColor: '#fff',
+                        borderWidth: 2
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            position: 'top',
+                        },
+                        tooltip: {
+                             callbacks: {
+                                label: function(context) {
+                                    let label = context.label || '';
+                                    if (label) {
+                                        label += ': ';
+                                    }
+                                    if (context.parsed !== null) {
+                                        label += context.parsed;
+                                    }
+                                    return label;
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+
+        // Initial setup
+        document.addEventListener('DOMContentLoaded', () => {
+            populateFilters();
+            displayProjects(projectsData);
+            createTechDistributionChart();
+            createDeploymentMethodChart();
+
+            // Handle initial section based on hash or default to overview
+            const initialSection = window.location.hash ? window.location.hash.substring(1) : 'overview';
+            const validSections = ['overview', 'explorer', 'flagship', 'frameworks', 'risks'];
+            if (validSections.includes(initialSection)) {
+                 showSection(initialSection);
+            } else {
+                 showSection('overview');
+            }
+        });
+
+    </script>
+</body>
+</html>
